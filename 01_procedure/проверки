@@ -1,0 +1,52 @@
+проверка:
+
+-- Проверка расчётов оборотов
+SELECT on_date, COUNT(*) FROM dm.dm_account_turnover_f GROUP BY on_date ORDER BY on_date;
+
+-- Проверка расчётов остатков
+SELECT on_date, COUNT(*) FROM dm.dm_account_balance_f GROUP BY on_date ORDER BY on_date;
+
+-- Проверка логов
+SELECT * FROM logs.etl_proc_log ORDER BY log_dt DESC;
+
+-- Пример: 10 строк оборотов за 15 января 2018
+SELECT * FROM dm.dm_account_turnover_f WHERE on_date = '2018-01-15' LIMIT 10;
+
+Проверка дат витрин:
+SELECT MIN(on_date), MAX(on_date)
+FROM dm.dm_account_turnover_f;
+
+SELECT MIN(on_date), MAX(on_date)
+FROM dm.dm_account_balance_f;
+
+-- Обороты: проверим, есть ли дни без записей
+SELECT d::date AS expected_date
+FROM generate_series('2018-01-01'::date, '2018-01-31'::date, interval '1 day') d
+WHERE d::date NOT IN (
+    SELECT DISTINCT on_date FROM dm.dm_account_turnover_f
+);
+
+-- Такая же для оборотов:
+SELECT d::date AS expected_date
+FROM generate_series('2018-01-01'::date, '2018-01-31'::date, interval '1 day') d
+WHERE d::date NOT IN (
+    SELECT DISTINCT on_date FROM dm.dm_account_balance_f
+);
+
+Проверка, что по счёту остаток рассчитывается на каждый день
+SELECT account_rk, COUNT(*) AS days_present
+FROM dm.dm_account_balance_f
+GROUP BY account_rk
+ORDER BY days_present ASC
+LIMIT 10;  -- минимально покрытые счета
+
+
+Проверка: нет отрицательных оборотов
+SELECT * 
+FROM dm.dm_account_turnover_f
+WHERE debet_amount < 0 OR credit_amount < 0;
+
+Проверка логов: все даты отражены
+SELECT procedure_name, COUNT(DISTINCT on_date)
+FROM logs.etl_proc_log
+GROUP BY procedure_name;
